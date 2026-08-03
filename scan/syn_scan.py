@@ -59,8 +59,6 @@ def build_syn_packet(port: int, host: str) -> int:
     tcp_checksum = checksum(tcp_header + pseudo_header)
     tcp_header = struct.pack('!HHIIBBHHH', src_port, dst_port, seq_num, ack_num, offset_byte, flags, window, tcp_checksum, urg_point)
 
-    return checksum(pseudo_header + tcp_header)
-
 
 def syn_scan(port: int, host: str):
     return 0
