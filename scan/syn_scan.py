@@ -17,12 +17,12 @@ def checksum(data: bytes) -> int:
     return total
 
 
-def build_syn_packet(port: int, host: str) -> int:
+def build_syn_packet(host: str, port: int) -> int:
 # IP HEADER
     version = 4
     IHL = 5
     ToS = 0
-    total_length = 40
+    total_length = socket.htons(40) # Required for Mac (little endian), remoce for Linux.
     identification = 328
     flags_frag = 0
     TTL = 64
@@ -53,14 +53,36 @@ def build_syn_packet(port: int, host: str) -> int:
     offset_byte = offset << 4
 
     tcp_header = struct.pack('!HHIIBBHHH', src_port, dst_port, seq_num, ack_num, offset_byte, flags, window, tcp_checksum, urg_point)
-    full_header = ip_header + tcp_header
     pseudo_header = struct.pack('!4s4sBBH', socket.inet_aton(src_ip), socket.inet_aton(dst_ip), 0, protocol, len(tcp_header))
 
     tcp_checksum = checksum(tcp_header + pseudo_header)
     tcp_header = struct.pack('!HHIIBBHHH', src_port, dst_port, seq_num, ack_num, offset_byte, flags, window, tcp_checksum, urg_point)
 
+    packet = ip_header + tcp_header
+    return packet
 
-def syn_scan(port: int, host: str):
-    return 0
+def syn_scan(host: str, port: int) -> str:
+    packet = build_syn_packet(host, port)
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW) as s:
+            s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
+            s.settimeout(3)
+            s.sendto(packet, (host, 0)) # Port always ignored
+            data, addr = s.recvfrom(65535)
+    except socket.timeout: 
+        return "Connection timed out. Port filtered."
 
+    except socket.error as err:
+        return "Socket creation failed with error %s" %(err)
 
+    FLAGS_OFFSET = 33 
+    flags_byte = data[FLAGS_OFFSET]
+
+    if flags_byte & 0x02:
+        return "Connection established. Port open"
+
+    elif flags_byte & 0x04:
+        return "Connection refused. Port closed"
+
+    else:
+        return "Unexpected Response: %#04x" %(flags_byte)
