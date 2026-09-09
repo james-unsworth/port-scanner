@@ -3,11 +3,11 @@ import argparse
 import concurrent.futures
 import re
 
-def scan_port(port: int, host: str, scan_type: str):
+def scan_port(host: str, port: int, scan_type: str):
     if scan_type == "tcp":
-        return scan.tcp(port, host)
+        return scan.tcp(host, port)
     elif scan_type == "syn":
-        return scan.syn(port, host)
+        return scan.syn(host, port)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-t", "--target", help="--target <target host>")
@@ -37,7 +37,7 @@ else:
 with concurrent.futures.ThreadPoolExecutor() as executor:
     futures = []
     for port in ports:
-        futures.append(executor.submit(scan_port, port=port, host=host, scan_type=scan_type))
+        futures.append(executor.submit(scan_port, host=host, port=port, scan_type=scan_type))
     for future in concurrent.futures.as_completed(futures):
         print(future.result())
 

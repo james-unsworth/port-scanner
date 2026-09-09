@@ -3,6 +3,7 @@ import socket
 import sys
 import libpcap as pcap
 import ctypes as ct
+import time
 
 def checksum(data: bytes) -> int:
     total = 0
@@ -24,13 +25,13 @@ def build_syn_packet(host: str, port: int) -> int:
     version = 4
     IHL = 5
     ToS = 0
-    total_length = socket.htons(40) # Required for Mac (little endian), remoce for Linux.
+    total_length = socket.htons(40) # Required for Mac (little endian), remove for Linux.
     identification = 328
     flags_frag = 0
     TTL = 64
     protocol = 6
     ip_checksum = 0
-    src_ip =  "127.0.0.1"
+    src_ip =  "192.168.0.48" # lo0 - 127.0.0.1  en0 - 192.168.0.48
     dst_ip = host
     byte0 = (version << 4) | IHL
 
@@ -63,16 +64,16 @@ def build_syn_packet(host: str, port: int) -> int:
 
 def syn_scan(host: str, port: int) -> str:
     errbuf = ct.create_string_buffer(pcap.PCAP_ERRBUF_SIZE)
-    handle = pcap.create(b"lo0", errbuf)
+    handle = pcap.create(b'en0', errbuf)
     if not handle:
-        return "Packet capture error: %s" %(errbuf.value.decode())
+        return f"{port}: Packet capture error: %s" %(errbuf.value.decode())
 
     pcap.set_snaplen(handle, 65535)
     pcap.set_timeout(handle, 1000)
     pcap.set_immediate_mode(handle, 1)
     
     if pcap.activate(handle) < 0:
-        return "Packet capture error."
+        return f"{port}: Packet capture error."
 
     packet = build_syn_packet(host, port)
     try:
@@ -82,35 +83,35 @@ def syn_scan(host: str, port: int) -> str:
             s.sendto(packet, (host, 0)) # Port always ignored
 
     except socket.error as err:
-        return "Socket creation failed with error %s" %(err)
+        return f"{port}: Socket creation failed with error %s" %(err)
 
     bpf = pcap.bpf_program()
-    cmdbuf = " ".encode("utf-8")
+    cmdbuf = f"tcp src port {port}".encode("utf-8")
     if pcap.compile(handle, ct.byref(bpf), cmdbuf, 1, 0) < 0:
-        return "Packet capture error."
+        return f"{port}Packet capture error."
 
     pcap.setfilter(handle, ct.byref(bpf))
     hdr_ptr = ct.POINTER(pcap.pkthdr)()
     data_ptr = ct.POINTER(ct.c_ubyte)()
     
     response = 0
+    timeout = time.time() + 3
     while response == 0:
+        if time.time() > timeout:
+            return f"{port}: Connection timed out. Port filtered."
         response = pcap.next_ex(handle, ct.byref(hdr_ptr), ct.byref(data_ptr))
 
     match response:
         case 1:
             data = ct.string_at(data_ptr, hdr_ptr.contents.caplen)
-            FLAGS_OFFSET = 37
+            FLAGS_OFFSET = 47 # Ethernet - 47, Loopback - 37
             flags_byte = data[FLAGS_OFFSET]
 
             if flags_byte & 0x02:
-                return "Connection established. Port open"
+                return f"{port}: Connection established. Port open"
             elif flags_byte & 0x04:
-                return "Connection refused. Port closed"
+                return f"{port}: Connection refused. Port closed"
             else:
-                return "Unexpected response: %#04x" %(flags_byte)
-            
-        case 0:
-            return "Connection timed out. Port filtered."
+                return f"{port}: Unexpected response: %#04x" %(flags_byte)
         case -1:
-            return "Packet capture error."
+            return f"{port}: Packet capture error."

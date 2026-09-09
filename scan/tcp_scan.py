@@ -1,18 +1,18 @@
 import socket
 
-def tcp_scan(port: int, host: str):
+def tcp_scan(host: str, port: int):
     try: 
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(3)
             s.connect((host, port))
-        return "Connection established. Port open"
+        return f"{port}: Connection established. Port open"
 
     except socket.timeout: 
-        return "Connection timed out. Port filtered."
+        return f"{port}: Cionnection timed out. Port filtered."
 
     except ConnectionRefusedError:
-        return "Connection refused. Port closed"
+        return f"{port}: Connection refused. Port closed"
 
     except socket.error as err:
-        return "Socket creation failed with error %s" %(err)
+        return f"{port}: Socket creation failed with error %s" %(err)
 
