@@ -1,6 +1,5 @@
 import struct
 import socket
-import sys
 import libpcap as pcap
 import ctypes as ct
 import time
@@ -29,14 +28,13 @@ def build_syn_packet(host: str, port: int, src_ip) -> int:
     packet = ip_header + tcp_header
     return packet
 
-def syn_scan(host: str, port: int, src_ip: str) -> str:
-    handle = scan.create_handle()
+def syn_scan(host: str, port: int, handle: object, src_ip: str) -> str:
     packet = build_syn_packet(host, port, src_ip)
 
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW) as s:
             s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
-            s.settimeout(3000)
+            s.settimeout(3)
             s.sendto(packet, (host, 0)) # Port always ignored
 
     except socket.error as err:
