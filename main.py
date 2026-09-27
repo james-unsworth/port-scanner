@@ -47,7 +47,7 @@ def start_scan(args):
 
     if args.func == scan.icmp:
         local = threading.local()
-        # Keep max_workers=3 to avoid congestion errors.   
+        # Keep max_workers=3 to avoid congestion errors.
         with concurrent.futures.ThreadPoolExecutor(max_workers=3, initializer=get_handle) as executor:
             futures = []
             for host in args.hosts:
@@ -55,7 +55,7 @@ def start_scan(args):
             for future in concurrent.futures.as_completed(futures):
                 print(future.result())
    
-    elif args.func == scan.tcp:
+    elif args.func == scan.tcp or args.func == scan.banner:
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = []
             for port in args.ports:
@@ -70,7 +70,7 @@ def start_scan(args):
             for port in args.ports:
                 futures.append(executor.submit(start_syn_scan, host=args.host, port=port, src_ip=src_ip))
             for future in concurrent.futures.as_completed(futures):
-                print(future.result())  
+                print(future.result())
 
 def main():
     parser = argparse.ArgumentParser()
@@ -89,6 +89,11 @@ def main():
     parser_sweep = subparsers.add_parser('sweep')
     parser_sweep.add_argument('hosts', type=hosts_to_list)
     parser_sweep.set_defaults(func=scan.icmp)
+
+    parser_banner = subparsers.add_parser('banner')
+    parser_banner.add_argument('host', type=str)
+    parser_banner.add_argument('ports', type=ports_to_list)
+    parser_banner.set_defaults(func=scan.banner)
 
     args = parser.parse_args()
 

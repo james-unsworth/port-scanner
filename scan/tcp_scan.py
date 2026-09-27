@@ -8,7 +8,7 @@ def tcp_scan(host: str, port: int):
         return f"{port}: Connection established. Port open"
 
     except socket.timeout: 
-        return f"{port}: Cionnection timed out. Port filtered."
+        return f"{port}: Connection timed out. Port filtered."
 
     except ConnectionRefusedError:
         return f"{port}: Connection refused. Port closed"
