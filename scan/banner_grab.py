@@ -15,6 +15,10 @@ def grab_banner(host: str, port: int) -> str:
             except socket.timeout:
                 s.sendall(f"GET / HTTP/1.0\r\nHost: {host}\r\n\r\n".encode())
                 data = s.recv(1024).decode(errors="replace").strip()
+
+                if not data:
+                    return f"{host}:{port} no response to HTTP probe\n"
+
                 data_lines = data.split("\r\n")
                 status = data_lines[0]
                 server = ""
@@ -28,5 +32,11 @@ def grab_banner(host: str, port: int) -> str:
                     return status_str + server + "\n"
                 return status_str + "\n"
 
+    except socket.timeout:
+        return f"{host}:{port} Connection timed out.\n"
+
+    except ConnectionRefusedError:
+        return f"{host}:{port} Connection refused. Port closed.\n"
+
     except socket.error as err:
-        return f"{host}:{port} Socket creation failed with error %s\n" %(err)
+        return f"{host}:{port} Socket error %s\n" %(err)
